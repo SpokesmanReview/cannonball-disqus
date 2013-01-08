@@ -1,2 +1,3 @@
 include LICENSE.txt
 include README.markdown
+recursive-include sr_disqus/templates *.xml
