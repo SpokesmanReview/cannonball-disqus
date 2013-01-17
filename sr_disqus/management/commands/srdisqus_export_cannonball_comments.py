@@ -56,27 +56,37 @@ except:
 
 LOCAL_TZ = timezone(getattr(settings, 'TIME_ZONE', 'America/Los_Angeles'))
 CHUNK_SIZE = 5000
-EXPORT_FILENAME_FMT = '/tmp/comments-%03d.xml' # where %03d expands into file number
+EXPORT_FILENAME_FMT = '/tmp/comments-%03d.xml'  # %03d expands into file number
 
 
 def dt_to_utc(naive_dt):
+    """
+    Based on Django `TIME_ZONE` setting (or the fallback string above in
+    the `LOCAL_TZ` line), converts a naive datetime (from that TZ) into UTC.
+    """
     local_dt = LOCAL_TZ.localize(naive_dt)
     return local_dt.astimezone(utc)
 
 
 def chunk(stream, size):
+    """
+    Given an iterator `stream`, smaller iterators of `size` items. (Useful
+    for partitioning absudrly large iterators into usable chunks for files
+    or etc.)
+    """
     return takewhile(bool, (list(islice(stream, size)) for _ in count()))
 
 
 class Command(NoArgsCommand):
-    help = 'Export comments from contrib.comments to WXR-flavored XML, which is compatible with DISQUS import'
+    help = 'Export comments from contrib.comments to WXR-flavored XML, ' +\
+        'which is compatible with DISQUS import'
     requires_model_validation = False
 
     #####
 
     def _get_items_with_comments(self):
+        # TODO: lol this code is probably entirely non-performant
         qs = Comment.objects.order_by('content_type__id', 'object_pk')
-        #qs = qs.filter(content_type=ContentType.objects.get(app_label='stories', name="story"))
         qs = qs.distinct('content_type__id', 'object_pk')
         qs = qs.values_list('content_type__id', 'object_pk')
 
@@ -112,13 +122,14 @@ class Command(NoArgsCommand):
 
         item_set = self._get_items_with_comments()
 
-        n = 0
+        chunk_num = 0
         for items in chunk(item_set, CHUNK_SIZE):
             if self.verbosity > 0:
-                print (EXPORT_FILENAME_FMT % n) + ("\t%s" % CHUNK_SIZE * (n + 1))
-                print "="*60
-            self.handle_chunk(items, n)
-            n += 1
+                filename = EXPORT_FILENAME_FMT % chunk_num
+                print "%s\t%s" % (filename, CHUNK_SIZE * (chunk_num + 1))
+                print "=" * 60
+            self.handle_chunk(items, chunk_num)
+            chunk_num += 1
 
     def handle_chunk(self, item_set, chunk_num):
         context = {
@@ -132,12 +143,25 @@ class Command(NoArgsCommand):
                 continue
             if not ContentType.objects.get_for_model(item):
                 continue
+
+            # add `comments` property to item
             setattr(item, "comments", self._get_comments_for_item(item))
+
+            # normalize property names across models that may have different
+            # names for same thing (i.e. "title" vs "headline"). see utils.py.
             item = normalize_all(item)
             if item.__class__.__name__.lower() == "photo":
-                setattr(item, 'title', os.path.basename(smart_str(item.photo.name)))
+                setattr(item, 'title',
+                    os.path.basename(smart_str(item.photo.name))
+                )
+
+            # turn local timestmap into a UTC timestamp, since that's what
+            # disqus wants on import
             setattr(item, 'gmt_timestamp', dt_to_utc(item.pubdate))
+
             context['items'].append(item)
 
         with open(EXPORT_FILENAME_FMT % (chunk_num), 'wb') as f:
-            f.write(smart_str(render_to_string("sr_disqus/wxr_base.xml", context)))
+            f.write(
+                smart_str(render_to_string("sr_disqus/wxr_base.xml", context))
+            )
