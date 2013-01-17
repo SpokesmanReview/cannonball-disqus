@@ -91,7 +91,7 @@ class Command(NoArgsCommand):
         qs = qs.values_list('content_type__id', 'object_pk')
 
         ctypes_cache = {}
-        for ctype_pk, obj_pk in qs:
+        for ctype_pk, obj_pk in qs.iterator():
             ctype = ctypes_cache.get(ctype_pk, None)
             if not ctype:
                 ctype = ContentType.objects.get(id=ctype_pk)
@@ -102,7 +102,7 @@ class Command(NoArgsCommand):
                 if self.verbosity > 1:
                     print "%s(%s) -> %s" % (ctype.name, obj_pk, i)
                 yield i
-            except ObjectDoesNotExist:
+            except:
                 if self.verbosity > 1:
                     print "NOTE: %s(%s) does not exist" % (ctype.name, obj_pk)
                 # item that this comment belongs to is no longer on our site
