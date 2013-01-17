@@ -4,7 +4,7 @@
           <!-- unique internal identifier; username, user id, etc. -->
           <dsq:id>{{ comment.user_id }}</dsq:id>
           <!-- avatar -->
-          <dsq:avatar>{{ comment.user.get_profile.avatar.url|default:"" }}</dsq:avatar>
+          <dsq:avatar>{% if comment.user.get_profile.avatar %}{{ comment.user.get_profile.avatar.url|default:"" }}{% endif %}</dsq:avatar>
         </dsq:remote>
         <!-- internal id of comment -->
         <wp:comment_id>{{ comment.pk }}</wp:comment_id>

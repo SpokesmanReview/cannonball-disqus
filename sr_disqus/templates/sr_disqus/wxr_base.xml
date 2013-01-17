@@ -6,8 +6,7 @@
   xmlns:wp="http://wordpress.org/export/1.0/"
 >
   <channel>
-    {% for item in items %}
-    {% include "sr_disqus/wxr_item.xml" %}
-    {% endfor %}
+{% for item in items %}
+{% include "sr_disqus/wxr_item.xml" %}{% endfor %}
   </channel>
 </rss>

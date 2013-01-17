@@ -9,7 +9,7 @@ setup(
         'into Disqus.',
     author='Mike Tigas',
     author_email='mike@tig.as',
-    install_requires=['django',],
+    install_requires=['django','pytz'],
     url='http://github.com/SpokesmanReview/cannonball-disqus/',
     license='New BSD License',
     classifiers=[

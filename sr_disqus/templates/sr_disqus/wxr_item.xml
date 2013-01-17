@@ -4,14 +4,13 @@
       <!-- absolute URI to article -->
       <link>http://{{ site.domain }}{{ item.get_absolute_url }}</link>
       <!-- body of the page or post; use cdata; html allowed (though will be formatted to DISQUS specs) -->
-      <content:encoded><![CDATA[Hello world]]></content:encoded>
+      <content:encoded><![CDATA[{{ item.teaser_text }}]]></content:encoded>
       <!-- value used within disqus_identifier; usually internal identifier of article -->
       <dsq:thread_identifier>{{ item.disqus_id }}</dsq:thread_identifier>
       <!-- creation date of thread (article), in GMT. Must be YYYY-MM-DD HH:MM:SS 24-hour format. -->
       <wp:post_date_gmt>{{ item.gmt_timestamp|date:"Y-m-d H:i:s" }}</wp:post_date_gmt>
       <!-- open/closed values are acceptable -->
       <wp:comment_status>{{ item.comment_status }}</wp:comment_status>
-      {% for comment in item.comments %}
-      {% include "sr_disqus/wxr_comment.xml" %}
-      {% endfor %}
+{% for comment in item.comments %}
+{% include "sr_disqus/wxr_comment.xml" %}{% endfor %}
     </item>
