@@ -55,7 +55,7 @@ except:
     from django.contrib.comments.models import Comment
 
 LOCAL_TZ = timezone(getattr(settings, 'TIME_ZONE', 'America/Los_Angeles'))
-CHUNK_SIZE = 5000
+CHUNK_SIZE = 3000
 EXPORT_FILENAME_FMT = '/tmp/comments-%03d.xml'  # %03d expands into file number
 
 
