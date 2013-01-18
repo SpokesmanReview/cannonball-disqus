@@ -41,7 +41,6 @@ from pytz import utc, timezone
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import Site
-from django.core.exceptions import ObjectDoesNotExist
 from django.core.management.base import NoArgsCommand
 from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
@@ -55,7 +54,7 @@ except:
     from django.contrib.comments.models import Comment
 
 LOCAL_TZ = timezone(getattr(settings, 'TIME_ZONE', 'America/Los_Angeles'))
-CHUNK_SIZE = 3000
+CHUNK_SIZE = 2500
 EXPORT_FILENAME_FMT = '/tmp/comments-%03d.xml'  # %03d expands into file number
 
 
@@ -144,9 +143,6 @@ class Command(NoArgsCommand):
             if not ContentType.objects.get_for_model(item):
                 continue
 
-            # add `comments` property to item
-            setattr(item, "comments", self._get_comments_for_item(item))
-
             # normalize property names across models that may have different
             # names for same thing (i.e. "title" vs "headline"). see utils.py.
             item = normalize_all(item)
@@ -154,6 +150,28 @@ class Command(NoArgsCommand):
                 setattr(item, 'title',
                     os.path.basename(smart_str(item.photo.name))
                 )
+
+            if not (
+                getattr(item, 'title', None) or
+                getattr(item, 'pubdate', None)
+            ):
+                continue
+            try:
+                item.get_absolute_url()
+            except:
+                continue
+
+            # add `comments` property to item
+            setattr(item, "comments", self._get_comments_for_item(item))
+
+            # use "app.model(pk)" as disqus_id
+            item_ctype = ContentType.objects.get_for_model(item)
+            disqus_id = "%s.%s(%s)" % (
+                item_ctype.app_label,
+                item_ctype.name,
+                item.pk
+            )
+            setattr(item, "disqus_id", disqus_id)
 
             # turn local timestmap into a UTC timestamp, since that's what
             # disqus wants on import
