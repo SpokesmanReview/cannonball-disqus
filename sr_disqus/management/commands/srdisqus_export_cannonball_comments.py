@@ -35,6 +35,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import os.path
+import cPickle as pickle
 from itertools import takewhile, islice, count
 from pytz import utc, timezone
 
@@ -55,6 +56,8 @@ except:
 
 LOCAL_TZ = timezone(getattr(settings, 'TIME_ZONE', 'America/Los_Angeles'))
 CHUNK_SIZE = 2500
+
+EXPORT_STATE_FILE = '/tmp/comments-data.dat'
 EXPORT_FILENAME_FMT = '/tmp/comments-%03d.xml'  # %03d expands into file number
 
 
@@ -83,6 +86,16 @@ class Command(NoArgsCommand):
 
     #####
 
+    def _load_state_file(self):
+        with open(EXPORT_STATE_FILE, 'rb') as f:
+            self.state = pickle.load(f)
+
+    def _save_state_file(self):
+        with open(EXPORT_STATE_FILE, 'wb') as f:
+            pickle.dump(self.state, f, -1)
+
+    #####
+
     def _get_items_with_comments(self):
         # TODO: lol this code is probably entirely non-performant
         qs = Comment.objects.order_by('content_type__id', 'object_pk')
@@ -91,6 +104,15 @@ class Command(NoArgsCommand):
 
         ctypes_cache = {}
         for ctype_pk, obj_pk in qs.iterator():
+            obj_pk = int(obj_pk)
+
+            # skip if we've processed this before
+            if (ctype_pk, obj_pk) in self.state['processed_items']:
+                if self.verbosity > 1:
+                    print "Skipped (ctype=%s, obj=%s); already processed" % (
+                        ctype_pk, obj_pk)
+                continue
+
             ctype = ctypes_cache.get(ctype_pk, None)
             if not ctype:
                 ctype = ContentType.objects.get(id=ctype_pk)
@@ -98,9 +120,9 @@ class Command(NoArgsCommand):
 
             try:
                 i = ctype.get_object_for_this_type(id=obj_pk)
-                if self.verbosity > 1:
-                    print "%s(%s) -> %s" % (ctype.name, obj_pk, i)
                 yield i
+            except KeyboardInterrupt:
+                raise
             except:
                 if self.verbosity > 1:
                     print "NOTE: %s(%s) does not exist" % (ctype.name, obj_pk)
@@ -118,16 +140,34 @@ class Command(NoArgsCommand):
     def handle(self, **options):
         self.current_site = Site.objects.get_current()
         self.verbosity = int(options.get('verbosity'))
+        self.state = dict(processed_items=set(), last_chunk=None)
+
+        if os.path.exists(EXPORT_STATE_FILE):
+            try:
+                self._load_state_file()
+                if self.verbosity > 0:
+                    print "loaded state file, %d items processed, %d files saved" % (
+                        len(self.state['processed_items']),
+                        int(self.state['last_chunk'])+1
+                    )
+            except KeyboardInterrupt:
+                raise
+            except:
+                self.state = dict(processed_items=set(), last_chunk=None)
+                if self.verbosity > 0:
+                        print "NOTE: could not load state file"
 
         item_set = self._get_items_with_comments()
 
-        chunk_num = 0
+        if self.state['last_chunk'] != None:
+            chunk_num = self.state['last_chunk']+1
+        else:
+            chunk_num = 0
         for items in chunk(item_set, CHUNK_SIZE):
-            if self.verbosity > 0:
-                filename = EXPORT_FILENAME_FMT % chunk_num
-                print "%s\t%s" % (filename, CHUNK_SIZE * (chunk_num + 1))
-                print "=" * 60
             self.handle_chunk(items, chunk_num)
+
+            self.state['last_chunk'] = chunk_num
+            self._save_state_file()
             chunk_num += 1
 
     def handle_chunk(self, item_set, chunk_num):
@@ -158,6 +198,8 @@ class Command(NoArgsCommand):
                 continue
             try:
                 item.get_absolute_url()
+            except KeyboardInterrupt:
+                raise
             except:
                 continue
 
@@ -177,9 +219,18 @@ class Command(NoArgsCommand):
             # disqus wants on import
             setattr(item, 'gmt_timestamp', dt_to_utc(item.pubdate))
 
+            if self.verbosity > 1:
+                print "%s(%s) -> %s" % (item_ctype.name, item.pk, item.title)
+
             context['items'].append(item)
+
+            self.state['processed_items'].add((item_ctype.pk, item.pk))
 
         with open(EXPORT_FILENAME_FMT % (chunk_num), 'wb') as f:
             f.write(
                 smart_str(render_to_string("sr_disqus/wxr_base.xml", context))
             )
+        if self.verbosity > 0:
+            filename = EXPORT_FILENAME_FMT % chunk_num
+            print "%s\t%s" % (filename, CHUNK_SIZE * (chunk_num + 1))
+            print "=" * 60

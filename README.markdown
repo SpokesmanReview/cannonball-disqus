@@ -18,3 +18,10 @@ A `cannonball.comments` -> WXR XML exporter, for use with Disqus' WXR importer.
 3. `django-admin.py srdisqus_export_cannonball_comments`
 4. ???
 5. profit
+
+Tips:
+
+* ensure `settings.DEBUG` is `False`.
+* ensure that you are using the `cached` Django [template loader][2]
+
+[2]: https://docs.djangoproject.com/en/1.4/ref/templates/api/#loader-types
