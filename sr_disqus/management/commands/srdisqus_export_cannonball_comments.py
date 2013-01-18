@@ -43,9 +43,9 @@ from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import Site
 from django.core.management.base import NoArgsCommand
-from django.template.loader import render_to_string
 from django.utils.encoding import smart_str
 
+from sr_disqus.wxr_render import write_wxr_file
 from sr_disqus.utils import normalize_all
 try:
     from cannonball.comments.models import Comment
@@ -169,13 +169,10 @@ class Command(NoArgsCommand):
             self.state['last_chunk'] = chunk_num
             self._save_state_file()
             chunk_num += 1
+            break
 
     def handle_chunk(self, item_set, chunk_num):
-        context = {
-            'items': [],
-            'site': self.current_site,
-
-        }
+        items = []
 
         for item in item_set:
             if not item:
@@ -205,6 +202,8 @@ class Command(NoArgsCommand):
 
             # add `comments` property to item
             setattr(item, "comments", self._get_comments_for_item(item))
+            for comment in item.comments:
+                setattr(comment, 'gmt_timestamp', dt_to_utc(comment.submit_date))
 
             # use "app.model(pk)" as disqus_id
             item_ctype = ContentType.objects.get_for_model(item)
@@ -222,14 +221,11 @@ class Command(NoArgsCommand):
             if self.verbosity > 1:
                 print "%s(%s) -> %s" % (item_ctype.name, item.pk, item.title)
 
-            context['items'].append(item)
+            items.append(item)
 
             self.state['processed_items'].add((item_ctype.pk, item.pk))
 
-        with open(EXPORT_FILENAME_FMT % (chunk_num), 'wb') as f:
-            f.write(
-                smart_str(render_to_string("sr_disqus/wxr_base.xml", context))
-            )
+        write_wxr_file(EXPORT_FILENAME_FMT % (chunk_num), self.current_site, items)
         if self.verbosity > 0:
             filename = EXPORT_FILENAME_FMT % chunk_num
             print "%s\t%s" % (filename, CHUNK_SIZE * (chunk_num + 1))
