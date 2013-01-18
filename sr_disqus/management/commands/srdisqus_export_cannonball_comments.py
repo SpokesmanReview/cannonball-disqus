@@ -44,8 +44,10 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.sites.models import Site
 from django.core.management.base import NoArgsCommand
 from django.utils.encoding import smart_str
+from django.template.defaultfilters import date as dateformat
 
-from sr_disqus.wxr_render import write_wxr_file
+from jinja2 import Environment, PackageLoader
+
 from sr_disqus.utils import normalize_all
 try:
     from cannonball.comments.models import Comment
@@ -60,6 +62,8 @@ CHUNK_SIZE = 2500
 EXPORT_STATE_FILE = '/tmp/comments-data.dat'
 EXPORT_FILENAME_FMT = '/tmp/comments-%03d.xml'  # %03d expands into file number
 
+RENDER_ENV = Environment(loader=PackageLoader('sr_disqus'))
+TEMPL = RENDER_ENV.get_template('sr_disqus/wxr_base.xml')
 
 def dt_to_utc(naive_dt):
     """
@@ -203,7 +207,10 @@ class Command(NoArgsCommand):
             # add `comments` property to item
             setattr(item, "comments", self._get_comments_for_item(item))
             for comment in item.comments:
-                setattr(comment, 'gmt_timestamp', dt_to_utc(comment.submit_date))
+                setattr(comment, 'gmt_timestamp', dateformat(
+                    dt_to_utc(comment.submit_date),
+                    "Y-m-d H:i:s"
+                ))
 
             # use "app.model(pk)" as disqus_id
             item_ctype = ContentType.objects.get_for_model(item)
@@ -216,7 +223,10 @@ class Command(NoArgsCommand):
 
             # turn local timestmap into a UTC timestamp, since that's what
             # disqus wants on import
-            setattr(item, 'gmt_timestamp', dt_to_utc(item.pubdate))
+            setattr(item, 'gmt_timestamp', dateformat(
+                dt_to_utc(item.pubdate),
+                "Y-m-d H:i:s"
+            ))
 
             if self.verbosity > 1:
                 print "%s(%s) -> %s" % (item_ctype.name, item.pk, item.title)
@@ -225,7 +235,9 @@ class Command(NoArgsCommand):
 
             self.state['processed_items'].add((item_ctype.pk, item.pk))
 
-        write_wxr_file(EXPORT_FILENAME_FMT % (chunk_num), self.current_site, items)
+        with open(EXPORT_FILENAME_FMT % (chunk_num), 'wb') as f:
+            f.write(smart_str(TEMPL.render(site=self.current_site, items=items)))
+
         if self.verbosity > 0:
             filename = EXPORT_FILENAME_FMT % chunk_num
             print "%s\t%s" % (filename, CHUNK_SIZE * (chunk_num + 1))

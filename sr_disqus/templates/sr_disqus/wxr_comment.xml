@@ -1,27 +1,15 @@
       <wp:comment>
-        <!-- sso only; see docs -->
         <dsq:remote>
-          <!-- unique internal identifier; username, user id, etc. -->
           <dsq:id>{{ comment.user_id }}</dsq:id>
-          <!-- avatar -->
-          <dsq:avatar>{% if comment.user.get_profile.avatar %}{{ comment.user.get_profile.avatar.url|default:"" }}{% endif %}</dsq:avatar>
+          <dsq:avatar>{{ comment.real_avatar_url|e }}</dsq:avatar>
         </dsq:remote>
-        <!-- internal id of comment -->
         <wp:comment_id>{{ comment.pk }}</wp:comment_id>
-        <!-- author display name -->
-        <wp:comment_author>{% firstof comment.user.get_profile.display_name comment.userinfo.name %} </wp:comment_author>
-        <!-- author email address -->
-        <wp:comment_author_email>{% firstof comment.user.email comment.userinfo.email %}</wp:comment_author_email>
-        <!-- author url, optional -->
-        <wp:comment_author_url>{% firstof comment.user.get_profile.blog comment.userinfo.url %}</wp:comment_author_url>
-        <!-- author ip address -->
-        <wp:comment_author_IP>{{ comment.ip_address|default:"127.0.0.1" }}</wp:comment_author_IP>
-        <!-- comment datetime, in GMT. Must be YYYY-MM-DD HH:MM:SS 24-hour format. -->
-        <wp:comment_date_gmt>{{ comment.gmt_timestamp|date:"Y-m-d H:i:s" }}</wp:comment_date_gmt>
-        <!-- comment body; use cdata; html allowed (though will be formatted to DISQUS specs) -->
-        <wp:comment_content><![CDATA[{{ comment.bleached_comment }}]]></wp:comment_content>
-        <!-- is this comment approved? 0/1 -->
+        <wp:comment_author>{{ comment.real_display_name|e }}</wp:comment_author>
+        <wp:comment_author_email>{{ comment.real_email|e }}</wp:comment_author_email>
+        <wp:comment_author_url>{{ comment.real_url|e }}</wp:comment_author_url>
+        <wp:comment_author_IP>{{ comment.ip_address|default("127.0.0.1") }}</wp:comment_author_IP>
+        <wp:comment_date_gmt>{{ comment.gmt_timestamp }}</wp:comment_date_gmt>
+        <wp:comment_content><![CDATA[{{ comment.bleached_comment|replace("]]>", " ]>") }}]]></wp:comment_content>
         <wp:comment_approved>{% if comment.is_public and not comment.is_removed %}1{% else %}0{% endif %}</wp:comment_approved>
-        <!-- parent id (match up with wp:comment_id) -->
         <wp:comment_parent>0</wp:comment_parent>
       </wp:comment>
