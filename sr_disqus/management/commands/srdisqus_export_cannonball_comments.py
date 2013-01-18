@@ -57,7 +57,7 @@ except:
     from django.contrib.comments.models import Comment
 
 LOCAL_TZ = timezone(getattr(settings, 'TIME_ZONE', 'America/Los_Angeles'))
-CHUNK_SIZE = 2500
+CHUNK_SIZE = 5000
 
 EXPORT_STATE_FILE = '/tmp/comments-data.dat'
 EXPORT_FILENAME_FMT = '/tmp/comments-%03d.xml'  # %03d expands into file number
@@ -173,7 +173,6 @@ class Command(NoArgsCommand):
             self.state['last_chunk'] = chunk_num
             self._save_state_file()
             chunk_num += 1
-            break
 
     def handle_chunk(self, item_set, chunk_num):
         items = []
