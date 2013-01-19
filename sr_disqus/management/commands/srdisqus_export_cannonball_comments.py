@@ -59,8 +59,8 @@ except:
 LOCAL_TZ = timezone(getattr(settings, 'TIME_ZONE', 'America/Los_Angeles'))
 CHUNK_SIZE = 5000
 
-EXPORT_STATE_FILE = '/tmp/comments-data.dat'
-EXPORT_FILENAME_FMT = '/tmp/comments-%03d.xml'  # %03d expands into file number
+EXPORT_STATE_FILE = '/Users/mtigas/Desktop/disqus_export/comments-data.dat'
+EXPORT_FILENAME_FMT = '/Users/mtigas/Desktop/disqus_export/comments-%03d.xml'  # %03d expands into file number
 
 RENDER_ENV = Environment(loader=PackageLoader('sr_disqus'))
 TEMPL = RENDER_ENV.get_template('sr_disqus/wxr_base.xml')
@@ -239,5 +239,5 @@ class Command(NoArgsCommand):
 
         if self.verbosity > 0:
             filename = EXPORT_FILENAME_FMT % chunk_num
-            print "%s\t%s" % (filename, CHUNK_SIZE * (chunk_num + 1))
+            print "%s" % filename
             print "=" * 60
